@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { FixedSizeList, areEqual } from 'react-window';
 import type { ListChildComponentProps } from 'react-window';
@@ -51,6 +51,23 @@ export default function LibraryPage() {
     ? selectedRoutineId
     : (routines[0]?.id ?? '');
 
+  // Ref để handler đọc danh sách mới nhất mà không đổi tham chiếu (tránh render lại các dòng).
+  const routinesRef = useRef(routines);
+  useEffect(() => {
+    routinesRef.current = routines;
+  }, [routines]);
+
+  // seq giúp hẹn giờ ẩn chạy lại kể cả khi nội dung thông báo trùng lần trước.
+  const [notice, setNotice] = useState<{ text: string; seq: number } | null>(null);
+  const showNotice = useCallback((text: string) => {
+    setNotice((prev) => ({ text, seq: (prev?.seq ?? 0) + 1 }));
+  }, []);
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(id);
+  }, [notice]);
+
   const items = useMemo(() => {
     const q = debouncedKeyword.trim().toLowerCase();
     const filtered = EXERCISES.filter(
@@ -85,12 +102,29 @@ export default function LibraryPage() {
     setSelectedRoutineId(e.target.value);
   }, []);
 
+  const handleAddToSession = useCallback(
+    (exercise: Exercise) => {
+      const exists = useSessionStore.getState().queue.some((e) => e.id === exercise.id);
+      addToSession(exercise);
+      showNotice(
+        exists ? `"${exercise.name}" đã có trong buổi tập` : `Đã thêm "${exercise.name}" vào buổi tập`,
+      );
+    },
+    [addToSession, showNotice],
+  );
+
   const handleAddToRoutine = useCallback(
     (exercise: Exercise) => {
-      if (activeRoutineId === '') return;
-      routineDispatch({ type: 'addExercise', routineId: activeRoutineId, exerciseId: exercise.id });
+      const routine = routinesRef.current.find((r) => r.id === activeRoutineId);
+      if (!routine) return;
+      if (routine.exerciseIds.includes(exercise.id)) {
+        showNotice(`"${exercise.name}" đã có trong giáo án "${routine.name}"`);
+        return;
+      }
+      routineDispatch({ type: 'addExercise', routineId: routine.id, exerciseId: exercise.id });
+      showNotice(`Đã thêm "${exercise.name}" vào giáo án "${routine.name}"`);
     },
-    [activeRoutineId, routineDispatch],
+    [activeRoutineId, routineDispatch, showNotice],
   );
 
   const canAddToRoutine = activeRoutineId !== '';
@@ -99,11 +133,11 @@ export default function LibraryPage() {
     () => ({
       items,
       onStart: handleStart,
-      onAddToSession: addToSession,
+      onAddToSession: handleAddToSession,
       onAddToRoutine: handleAddToRoutine,
       canAddToRoutine,
     }),
-    [items, handleStart, addToSession, handleAddToRoutine, canAddToRoutine],
+    [items, handleStart, handleAddToSession, handleAddToRoutine, canAddToRoutine],
   );
 
   return (
@@ -154,6 +188,10 @@ export default function LibraryPage() {
           </select>
         </label>
       </div>
+
+      <p className="notice" role="status">
+        {notice?.text}
+      </p>
 
       {items.length === 0 ? (
         <p>Không tìm thấy bài tập nào</p>

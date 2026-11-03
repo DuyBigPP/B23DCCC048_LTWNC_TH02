@@ -135,3 +135,91 @@ describe('useSessionStore', () => {
     expect(state().elapsed).toBe(0);
   });
 });
+
+describe('useSessionStore – nghỉ giữa bài (thử thách)', () => {
+  const tickTimes = (n: number) => {
+    for (let i = 0; i < n; i += 1) state().tick();
+  };
+
+  beforeEach(() => {
+    useSessionStore.setState({
+      queue: [],
+      currentIndex: -1,
+      isRunning: false,
+      elapsed: 0,
+      restDuration: 0,
+      isResting: false,
+      restLeft: 0,
+    });
+  });
+
+  it('hết bài thì đếm nghỉ 10 giây rồi mới sang bài sau', () => {
+    state().setRestDuration(10);
+    state().startSession([e1, e2], 0);
+    useSessionStore.setState({ elapsed: 29 });
+
+    state().tick();
+    expect(state().isResting).toBe(true);
+    expect(state().restLeft).toBe(10);
+    expect(current()).toEqual(e1);
+
+    tickTimes(9);
+    expect(state().isResting).toBe(true);
+    expect(state().restLeft).toBe(1);
+    expect(current()).toEqual(e1);
+
+    state().tick();
+    expect(state().isResting).toBe(false);
+    expect(current()).toEqual(e2);
+    expect(state().elapsed).toBe(0);
+    expect(state().isRunning).toBe(true);
+  });
+
+  it('bài cuối thì không nghỉ, dừng luôn', () => {
+    state().setRestDuration(10);
+    state().startSession([e1], 0);
+    useSessionStore.setState({ elapsed: 29 });
+
+    state().tick();
+    expect(state().isResting).toBe(false);
+    expect(state().isRunning).toBe(false);
+  });
+
+  it('đang nghỉ mà bấm Sau thì bỏ qua thời gian nghỉ', () => {
+    state().setRestDuration(10);
+    state().startSession([e1, e2], 0);
+    useSessionStore.setState({ elapsed: 29 });
+    state().tick();
+
+    state().next();
+    expect(state().isResting).toBe(false);
+    expect(current()).toEqual(e2);
+  });
+
+  it('đang nghỉ mà tạm dừng thì không đếm nghỉ', () => {
+    state().setRestDuration(10);
+    state().startSession([e1, e2], 0);
+    useSessionStore.setState({ elapsed: 29 });
+    state().tick();
+
+    state().toggleRun();
+    tickTimes(3);
+    expect(state().restLeft).toBe(10);
+  });
+
+  it('bắt đầu buổi tập mới thì huỷ trạng thái nghỉ đang có', () => {
+    state().setRestDuration(10);
+    state().startSession([e1, e2], 0);
+    useSessionStore.setState({ elapsed: 29 });
+    state().tick();
+
+    state().startSession([e2, e3], 1);
+    expect(state().isResting).toBe(false);
+    expect(current()).toEqual(e3);
+  });
+
+  it('setRestDuration không nhận số âm', () => {
+    state().setRestDuration(-5);
+    expect(state().restDuration).toBe(0);
+  });
+});

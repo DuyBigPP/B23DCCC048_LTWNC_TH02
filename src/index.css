@@ -230,3 +230,22 @@ select {
 a {
   color: var(--accent);
 }
+
+.notice {
+  min-height: 1.5em;
+  margin: 12px 0 0;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.rest-select {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.countdown.resting {
+  color: var(--accent);
+}

@@ -95,3 +95,107 @@ describe('SessionBar', () => {
     expect(useSessionStore.getState().elapsed).toBe(2);
   });
 });
+
+describe('SessionBar – nghỉ giữa bài', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    useSessionStore.setState({
+      queue: [],
+      currentIndex: -1,
+      isRunning: false,
+      elapsed: 0,
+      restDuration: 0,
+      isResting: false,
+      restLeft: 0,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('ô "Nghỉ giữa bài" mặc định là không nghỉ', () => {
+    render(<SessionBar />);
+    expect(screen.getByLabelText('Nghỉ giữa bài')).toHaveValue('0');
+  });
+
+  it('chọn nghỉ 10 giây: hết bài e1 thì nghỉ 10 giây rồi mới sang "Kéo tạ đơn 1"', () => {
+    render(<SessionBar />);
+    fireEvent.change(screen.getByLabelText('Nghỉ giữa bài'), { target: { value: '10' } });
+    startAt([e1, e2], 0);
+
+    wait(30000);
+    expect(screen.getByText('Nghỉ giữa bài: 0:10 – tiếp theo: Kéo tạ đơn 1')).toBeInTheDocument();
+    expect(screen.getByText('Đang tập: Đẩy tạ đơn 1 – HLV Minh Khang')).toBeInTheDocument();
+
+    wait(9000);
+    expect(screen.getByText('Nghỉ giữa bài: 0:01 – tiếp theo: Kéo tạ đơn 1')).toBeInTheDocument();
+
+    wait(1000);
+    expect(screen.getByText('Đang tập: Kéo tạ đơn 1 – HLV Phương Anh')).toBeInTheDocument();
+    expect(screen.getByText('Còn lại: 1:07')).toBeInTheDocument();
+  });
+});
+
+describe('SessionBar – phím tắt Space', () => {
+  const pressSpace = (target: Element = document.body) =>
+    fireEvent.keyDown(target, { key: ' ', code: 'Space' });
+  const isRunning = () => useSessionStore.getState().isRunning;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    useSessionStore.setState({ queue: [], currentIndex: -1, isRunning: false, elapsed: 0, isResting: false });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('nhấn Space thì Tạm dừng / Bắt đầu, và chặn trang bị cuộn', () => {
+    render(<SessionBar />);
+    startAt([e1, e2], 0);
+
+    const notPrevented = pressSpace();
+    expect(notPrevented).toBe(false);
+    expect(isRunning()).toBe(false);
+
+    pressSpace();
+    expect(isRunning()).toBe(true);
+  });
+
+  it('đang gõ trong ô nhập thì Space không điều khiển đồng hồ', () => {
+    render(
+      <>
+        <input aria-label="Tìm kiếm" />
+        <SessionBar />
+      </>,
+    );
+    startAt([e1], 0);
+
+    const notPrevented = pressSpace(screen.getByLabelText('Tìm kiếm'));
+    expect(notPrevented).toBe(true);
+    expect(isRunning()).toBe(true);
+  });
+
+  it('Space trên một nút đang focus thì để nút tự xử lý, không bật/tắt thêm lần nữa', () => {
+    render(<SessionBar />);
+    startAt([e1], 0);
+    pressSpace(screen.getByRole('button', { name: 'Sau' }));
+    expect(isRunning()).toBe(true);
+  });
+
+  it('gỡ SessionBar thì phím Space không còn tác dụng (removeEventListener)', () => {
+    const { unmount } = render(<SessionBar />);
+    startAt([e1], 0);
+    unmount();
+
+    // Đếm số lần bật/tắt thay vì xem trạng thái cuối (số lần chẵn sẽ che mất lỗi).
+    let toggles = 0;
+    const unsubscribe = useSessionStore.subscribe((s, prev) => {
+      if (s.isRunning !== prev.isRunning) toggles += 1;
+    });
+    pressSpace();
+    unsubscribe();
+    expect(toggles).toBe(0);
+  });
+});

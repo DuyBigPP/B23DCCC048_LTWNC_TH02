@@ -34,3 +34,21 @@ describe('CountdownBar', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('value', '50');
   });
 });
+
+describe('CountdownBar – nghỉ giữa bài', () => {
+  it('đang nghỉ thì hiện thời gian nghỉ còn lại và bài tiếp theo thay cho "Còn lại"', () => {
+    useSessionStore.setState({
+      queue: [e1, e2],
+      currentIndex: 0,
+      elapsed: 30,
+      isResting: true,
+      restLeft: 7,
+      restDuration: 10,
+    });
+    render(<CountdownBar />);
+
+    expect(screen.getByText('Nghỉ giữa bài: 0:07 – tiếp theo: Kéo tạ đơn 1')).toBeInTheDocument();
+    expect(screen.queryByText(/Còn lại/)).not.toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('value', '30');
+  });
+});

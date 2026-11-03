@@ -11,7 +11,21 @@ describe('useDebounce', () => {
     vi.useRealTimers();
   });
 
-  it('trước 300ms vẫn giữ giá trị cũ, sau 300ms mới đổi sang giá trị mới', () => {
+  it('đổi giá trị: trước 300ms vẫn là giá trị cũ, sau advanceTimersByTime(300) là giá trị mới', () => {
+    const { result, rerender } = renderHook(({ value }) => useDebounce(value, 300), {
+      initialProps: { value: 'cũ' },
+    });
+
+    rerender({ value: 'mới' });
+    expect(result.current).toBe('cũ');
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current).toBe('mới');
+  });
+
+  it('ngay trước mốc 300ms (299ms) vẫn giữ giá trị cũ, đủ 300ms mới đổi', () => {
     const { result, rerender } = renderHook(({ value }) => useDebounce(value, 300), {
       initialProps: { value: 'cũ' },
     });

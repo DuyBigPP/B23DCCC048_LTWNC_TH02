@@ -36,6 +36,15 @@ describe('SavedPage', () => {
     expect(session().isRunning).toBe(true);
   });
 
+  it('bấm Bắt đầu ở một bài thì buổi tập là các bài đã lưu, bắt đầu từ đúng bài đó', () => {
+    useSavedStore.setState({ ids: ['e1', 'e3', 'e2'] });
+    render(<SavedPage />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Bắt đầu' })[1]);
+
+    expect(session().queue.map((e) => e.id)).toEqual(['e1', 'e3', 'e2']);
+    expect(session().queue[session().currentIndex].id).toBe('e3');
+  });
+
   it('bấm Bỏ lưu thì bài biến mất khỏi danh sách', () => {
     useSavedStore.setState({ ids: ['e1', 'e3'] });
     render(<SavedPage />);

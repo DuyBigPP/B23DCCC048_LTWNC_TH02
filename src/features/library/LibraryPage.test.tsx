@@ -222,3 +222,60 @@ describe('LibraryPage – thêm bài vào giáo án', () => {
     });
   });
 });
+
+describe('LibraryPage – thông báo khi bấm nút', () => {
+  const status = () => screen.getByRole('status');
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    useSessionStore.setState({ queue: [], currentIndex: -1, isRunning: false, elapsed: 0 });
+    localStorage.setItem('workout-routines', JSON.stringify([{ id: 'r1', name: 'Ngày ngực', exerciseIds: [] }]));
+    rowRenders.count = 0;
+    renderWithProviders(<LibraryPage />);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('bấm "+ Buổi tập" thì báo đã thêm; bấm lại bài đó thì báo đã có trong buổi tập', () => {
+    clickRowButton('+ Buổi tập', 0);
+    expect(status()).toHaveTextContent('Đã thêm "Đẩy tạ đơn 1" vào buổi tập');
+
+    clickRowButton('+ Buổi tập', 0);
+    expect(status()).toHaveTextContent('"Đẩy tạ đơn 1" đã có trong buổi tập');
+  });
+
+  it('bấm "+ Giáo án" thì báo tên giáo án được thêm vào; trùng thì báo đã có', () => {
+    clickRowButton('+ Giáo án', 1);
+    expect(status()).toHaveTextContent('Đã thêm "Kéo tạ đơn 1" vào giáo án "Ngày ngực"');
+
+    clickRowButton('+ Giáo án', 1);
+    expect(status()).toHaveTextContent('"Kéo tạ đơn 1" đã có trong giáo án "Ngày ngực"');
+  });
+
+  it('thông báo tự ẩn sau 3 giây', () => {
+    clickRowButton('+ Buổi tập', 0);
+    act(() => {
+      vi.advanceTimersByTime(2999);
+    });
+    expect(status()).toHaveTextContent('Đã thêm');
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(status()).toBeEmptyDOMElement();
+  });
+
+  it('hiện thông báo và thêm bài vào giáo án không làm các dòng render lại', () => {
+    const before = rowRenders.count;
+    clickRowButton('+ Giáo án', 0);
+    clickRowButton('+ Buổi tập', 1);
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(rowRenders.count).toBe(before);
+  });
+});
