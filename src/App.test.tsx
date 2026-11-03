@@ -1,16 +1,16 @@
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
+import { renderWithProviders } from './test-utils';
 
-const renderAt = (path: string) =>
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-    </MemoryRouter>,
-  );
+const renderAt = (route: string) => renderWithProviders(<App />, { route });
 
 describe('App – khung ứng dụng', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('thanh menu có 3 mục trỏ đúng địa chỉ', () => {
     renderAt('/');
     expect(screen.getByRole('link', { name: 'Kho bài tập' })).toHaveAttribute('href', '/');
@@ -23,9 +23,9 @@ describe('App – khung ứng dụng', () => {
     ['/saved', 'Bài tập đã lưu', 'Đã lưu'],
     ['/routines', 'Giáo án', 'Giáo án'],
     ['/routines/abc', 'Chi tiết giáo án', 'Giáo án'],
-  ])('mở %s thì hiện trang "%s" và chỉ tô sáng mục "%s"', (path, heading, activeLink) => {
+  ])('mở %s thì hiện trang "%s" và chỉ tô sáng mục "%s"', async (path, heading, activeLink) => {
     renderAt(path);
-    expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
     const current = screen
       .getAllByRole('link')
       .filter((a) => a.getAttribute('aria-current') === 'page')
@@ -40,4 +40,14 @@ describe('App – khung ứng dụng', () => {
       expect(screen.getByRole('contentinfo')).toHaveTextContent('Chưa bắt đầu buổi tập');
     },
   );
+
+  it('nút trên thanh menu đổi giữa "Giao diện tối" và "Giao diện sáng"', async () => {
+    renderAt('/');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Giao diện tối' }));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Giao diện sáng' }));
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
 });

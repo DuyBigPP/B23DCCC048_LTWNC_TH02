@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithProviders } from '../../test-utils';
 import { useSavedStore } from '../saved/useSavedStore';
 import { useSessionStore } from '../session/useSessionStore';
 import LibraryPage from './LibraryPage';
@@ -44,7 +45,7 @@ describe('LibraryPage', () => {
     useSavedStore.setState({ ids: [] });
     useSessionStore.setState({ queue: [], currentIndex: -1, isRunning: false, elapsed: 0 });
     rowRenders.count = 0;
-    render(<LibraryPage />);
+    renderWithProviders(<LibraryPage />);
   });
 
   afterEach(() => {
@@ -159,5 +160,65 @@ describe('LibraryPage', () => {
     typeSearch('đẩ');
     typeSearch('đẩy');
     expect(rowRenders.count).toBe(before);
+  });
+});
+
+describe('LibraryPage – thêm bài vào giáo án', () => {
+  const storedRoutines = () =>
+    JSON.parse(localStorage.getItem('workout-routines') ?? '[]') as { id: string; exerciseIds: string[] }[];
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  it('chưa có giáo án nào thì nút "+ Giáo án" bị khóa', () => {
+    renderWithProviders(<LibraryPage />);
+    const buttons = screen.getAllByRole('button', { name: '+ Giáo án' });
+    expect(buttons.length).toBeGreaterThan(0);
+    buttons.forEach((b) => expect(b).toBeDisabled());
+  });
+
+  it('chọn "Ngày ngực", bấm + Giáo án ở e1, e2 rồi e1 lần nữa thì giáo án có 2 bài', () => {
+    localStorage.setItem(
+      'workout-routines',
+      JSON.stringify([
+        { id: 'r2', name: 'Ngày chân', exerciseIds: [] },
+        { id: 'r1', name: 'Ngày ngực', exerciseIds: [] },
+      ]),
+    );
+    renderWithProviders(<LibraryPage />);
+
+    select('Giáo án đang chọn', 'r1');
+    clickRowButton('+ Giáo án', 0);
+    clickRowButton('+ Giáo án', 1);
+    clickRowButton('+ Giáo án', 0);
+
+    expect(storedRoutines()).toEqual([
+      { id: 'r2', name: 'Ngày chân', exerciseIds: [] },
+      { id: 'r1', name: 'Ngày ngực', exerciseIds: ['e1', 'e2'] },
+    ]);
+  });
+
+  it('mặc định chọn giáo án đầu tiên', () => {
+    localStorage.setItem('workout-routines', JSON.stringify([{ id: 'r1', name: 'Ngày ngực', exerciseIds: [] }]));
+    renderWithProviders(<LibraryPage />);
+
+    expect(screen.getByLabelText('Giáo án đang chọn')).toHaveValue('r1');
+    clickRowButton('+ Giáo án', 2);
+    expect(storedRoutines()[0].exerciseIds).toEqual(['e3']);
+  });
+
+  it('khi thêm bài, Console có log action addExercise (middleware withLogger)', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    localStorage.setItem('workout-routines', JSON.stringify([{ id: 'r1', name: 'Ngày ngực', exerciseIds: [] }]));
+    renderWithProviders(<LibraryPage />);
+
+    clickRowButton('+ Giáo án', 0);
+
+    expect(log).toHaveBeenCalledWith('addExercise', {
+      prev: [{ id: 'r1', name: 'Ngày ngực', exerciseIds: [] }],
+      next: [{ id: 'r1', name: 'Ngày ngực', exerciseIds: ['e1'] }],
+    });
   });
 });

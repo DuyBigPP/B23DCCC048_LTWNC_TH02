@@ -10,15 +10,27 @@ interface ExerciseRowProps {
   style?: CSSProperties;
   onStart: (exercise: Exercise) => void;
   onAddToSession: (exercise: Exercise) => void;
+  /** Không truyền thì không hiện nút "+ Giáo án". */
+  onAddToRoutine?: (exercise: Exercise) => void;
+  canAddToRoutine?: boolean;
 }
 
-function ExerciseRow({ exercise, index, style, onStart, onAddToSession }: ExerciseRowProps) {
+function ExerciseRow({
+  exercise,
+  index,
+  style,
+  onStart,
+  onAddToSession,
+  onAddToRoutine,
+  canAddToRoutine = false,
+}: ExerciseRowProps) {
   const isSaved = useSavedStore((s) => s.ids.includes(exercise.id));
   const toggleSaved = useSavedStore((s) => s.toggle);
 
   const handleStart = useCallback(() => onStart(exercise), [onStart, exercise]);
   const handleAddToSession = useCallback(() => onAddToSession(exercise), [onAddToSession, exercise]);
   const handleToggleSaved = useCallback(() => toggleSaved(exercise.id), [toggleSaved, exercise.id]);
+  const handleAddToRoutine = useCallback(() => onAddToRoutine?.(exercise), [onAddToRoutine, exercise]);
 
   return (
     <div className="exercise-row" style={style}>
@@ -41,6 +53,11 @@ function ExerciseRow({ exercise, index, style, onStart, onAddToSession }: Exerci
         <button type="button" onClick={handleAddToSession}>
           + Buổi tập
         </button>
+        {onAddToRoutine && (
+          <button type="button" onClick={handleAddToRoutine} disabled={!canAddToRoutine}>
+            + Giáo án
+          </button>
+        )}
       </span>
     </div>
   );

@@ -5,6 +5,7 @@ import type { ListChildComponentProps } from 'react-window';
 import { EXERCISES, GROUPS } from '../../data/exercises';
 import { useDebounce } from '../../hooks/useDebounce';
 import type { Exercise, MuscleGroup } from '../../types';
+import { useRoutineDispatch, useRoutines } from '../routines/RoutineContext';
 import { useSessionStore } from '../session/useSessionStore';
 import ExerciseRow from './ExerciseRow';
 
@@ -15,6 +16,8 @@ interface RowData {
   items: Exercise[];
   onStart: (exercise: Exercise) => void;
   onAddToSession: (exercise: Exercise) => void;
+  onAddToRoutine: (exercise: Exercise) => void;
+  canAddToRoutine: boolean;
 }
 
 const itemKey = (index: number, data: RowData) => data.items[index].id;
@@ -27,6 +30,8 @@ const Row = memo(function Row({ index, style, data }: ListChildComponentProps<Ro
       style={style}
       onStart={data.onStart}
       onAddToSession={data.onAddToSession}
+      onAddToRoutine={data.onAddToRoutine}
+      canAddToRoutine={data.canAddToRoutine}
     />
   );
 }, areEqual);
@@ -38,6 +43,13 @@ export default function LibraryPage() {
   const debouncedKeyword = useDebounce(keyword, 300);
   const startSession = useSessionStore((s) => s.startSession);
   const addToSession = useSessionStore((s) => s.addToSession);
+  const routines = useRoutines();
+  const routineDispatch = useRoutineDispatch();
+  const [selectedRoutineId, setSelectedRoutineId] = useState('');
+  // Giáo án đã chọn bị xóa (hoặc chưa chọn) thì dùng giáo án đầu tiên.
+  const activeRoutineId = routines.some((r) => r.id === selectedRoutineId)
+    ? selectedRoutineId
+    : (routines[0]?.id ?? '');
 
   const items = useMemo(() => {
     const q = debouncedKeyword.trim().toLowerCase();
@@ -69,9 +81,29 @@ export default function LibraryPage() {
     [items, startSession],
   );
 
+  const handleRoutineChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    setSelectedRoutineId(e.target.value);
+  }, []);
+
+  const handleAddToRoutine = useCallback(
+    (exercise: Exercise) => {
+      if (activeRoutineId === '') return;
+      routineDispatch({ type: 'addExercise', routineId: activeRoutineId, exerciseId: exercise.id });
+    },
+    [activeRoutineId, routineDispatch],
+  );
+
+  const canAddToRoutine = activeRoutineId !== '';
+
   const itemData = useMemo<RowData>(
-    () => ({ items, onStart: handleStart, onAddToSession: addToSession }),
-    [items, handleStart, addToSession],
+    () => ({
+      items,
+      onStart: handleStart,
+      onAddToSession: addToSession,
+      onAddToRoutine: handleAddToRoutine,
+      canAddToRoutine,
+    }),
+    [items, handleStart, addToSession, handleAddToRoutine, canAddToRoutine],
   );
 
   return (
@@ -104,6 +136,21 @@ export default function LibraryPage() {
             <option value="default">Mặc định</option>
             <option value="name">Tên A–Z</option>
             <option value="duration">Thời lượng tăng dần</option>
+          </select>
+        </label>
+        <label>
+          Giáo án đang chọn
+          <select
+            value={activeRoutineId}
+            onChange={handleRoutineChange}
+            disabled={routines.length === 0}
+          >
+            {routines.length === 0 && <option value="">Chưa có giáo án</option>}
+            {routines.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
           </select>
         </label>
       </div>

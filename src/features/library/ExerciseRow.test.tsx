@@ -13,13 +13,23 @@ const exercise: Exercise = {
   duration: 30,
 };
 
-const renderRow = (overrides: { onStart?: () => void; onAddToSession?: () => void; index?: number } = {}) =>
+interface RowOverrides {
+  onStart?: () => void;
+  onAddToSession?: () => void;
+  onAddToRoutine?: () => void;
+  canAddToRoutine?: boolean;
+  index?: number;
+}
+
+const renderRow = (overrides: RowOverrides = {}) =>
   render(
     <ExerciseRow
       exercise={exercise}
       index={overrides.index ?? 0}
       onStart={overrides.onStart ?? vi.fn()}
       onAddToSession={overrides.onAddToSession ?? vi.fn()}
+      onAddToRoutine={overrides.onAddToRoutine}
+      canAddToRoutine={overrides.canAddToRoutine}
     />,
   );
 
@@ -73,6 +83,26 @@ describe('ExerciseRow', () => {
     await userEvent.click(unsaveButton);
     expect(screen.getByRole('button', { name: 'Lưu bài tập' })).toBeInTheDocument();
     expect(useSavedStore.getState().ids).toEqual([]);
+  });
+
+  it('bấm "+ Giáo án" thì gọi onAddToRoutine với đúng bài tập', async () => {
+    const onAddToRoutine = vi.fn();
+    renderRow({ onAddToRoutine, canAddToRoutine: true });
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Giáo án' }));
+
+    expect(onAddToRoutine).toHaveBeenCalledTimes(1);
+    expect(onAddToRoutine).toHaveBeenCalledWith(exercise);
+  });
+
+  it('chưa có giáo án nào thì nút "+ Giáo án" bị khóa', () => {
+    renderRow({ onAddToRoutine: vi.fn(), canAddToRoutine: false });
+    expect(screen.getByRole('button', { name: '+ Giáo án' })).toBeDisabled();
+  });
+
+  it('không truyền onAddToRoutine (VD trang Đã lưu) thì không có nút "+ Giáo án"', () => {
+    renderRow();
+    expect(screen.queryByRole('button', { name: '+ Giáo án' })).not.toBeInTheDocument();
   });
 
   it('bài đã lưu từ trước thì hiện sẵn ★', () => {
