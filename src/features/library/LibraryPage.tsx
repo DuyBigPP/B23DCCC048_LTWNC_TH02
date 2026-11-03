@@ -5,6 +5,7 @@ import type { ListChildComponentProps } from 'react-window';
 import { EXERCISES, GROUPS } from '../../data/exercises';
 import { useDebounce } from '../../hooks/useDebounce';
 import type { Exercise, MuscleGroup } from '../../types';
+import { useSessionStore } from '../session/useSessionStore';
 import ExerciseRow from './ExerciseRow';
 
 type GroupFilter = MuscleGroup | 'all';
@@ -13,6 +14,7 @@ type SortKey = 'default' | 'name' | 'duration';
 interface RowData {
   items: Exercise[];
   onStart: (exercise: Exercise) => void;
+  onAddToSession: (exercise: Exercise) => void;
 }
 
 const itemKey = (index: number, data: RowData) => data.items[index].id;
@@ -24,6 +26,7 @@ const Row = memo(function Row({ index, style, data }: ListChildComponentProps<Ro
       index={index}
       style={style}
       onStart={data.onStart}
+      onAddToSession={data.onAddToSession}
     />
   );
 }, areEqual);
@@ -33,6 +36,8 @@ export default function LibraryPage() {
   const [group, setGroup] = useState<GroupFilter>('all');
   const [sort, setSort] = useState<SortKey>('default');
   const debouncedKeyword = useDebounce(keyword, 300);
+  const startSession = useSessionStore((s) => s.startSession);
+  const addToSession = useSessionStore((s) => s.addToSession);
 
   const items = useMemo(() => {
     const q = debouncedKeyword.trim().toLowerCase();
@@ -58,11 +63,16 @@ export default function LibraryPage() {
     setSort(e.target.value as SortKey);
   }, []);
 
-  const handleStart = useCallback(() => {
-    // Phần 2: nối với buổi tập (Zustand)
-  }, []);
+  // Buổi tập là danh sách đang hiển thị (đã lọc, đã sắp xếp), bắt đầu từ bài được bấm.
+  const handleStart = useCallback(
+    (exercise: Exercise) => startSession(items, items.indexOf(exercise)),
+    [items, startSession],
+  );
 
-  const itemData = useMemo<RowData>(() => ({ items, onStart: handleStart }), [items, handleStart]);
+  const itemData = useMemo<RowData>(
+    () => ({ items, onStart: handleStart, onAddToSession: addToSession }),
+    [items, handleStart, addToSession],
+  );
 
   return (
     <section>

@@ -32,4 +32,12 @@ describe('App – khung ứng dụng', () => {
       .map((a) => a.textContent);
     expect(current).toEqual([activeLink]);
   });
+
+  it.each(['/', '/saved', '/routines', '/routines/abc'])(
+    'mở %s thì thanh đồng hồ buổi tập luôn có ở đáy trang',
+    (path) => {
+      renderAt(path);
+      expect(screen.getByRole('contentinfo')).toHaveTextContent('Chưa bắt đầu buổi tập');
+    },
+  );
 });

@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSavedStore } from '../saved/useSavedStore';
+import { useSessionStore } from '../session/useSessionStore';
 import LibraryPage from './LibraryPage';
 
 const rowRenders = vi.hoisted(() => ({ count: 0 }));
@@ -29,10 +31,18 @@ const select = (label: string, value: string) => {
 };
 const foundText = () => screen.getByText(/^Tìm thấy \d+ bài tập$/).textContent;
 const firstRowName = () => document.querySelector('.exercise-row .col-name')?.textContent;
+const clickRowButton = (name: string, row: number) => {
+  fireEvent.click(screen.getAllByRole('button', { name })[row]);
+};
+const session = () => useSessionStore.getState();
+const currentName = () => session().queue[session().currentIndex]?.name;
 
 describe('LibraryPage', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    localStorage.clear();
+    useSavedStore.setState({ ids: [] });
+    useSessionStore.setState({ queue: [], currentIndex: -1, isRunning: false, elapsed: 0 });
     rowRenders.count = 0;
     render(<LibraryPage />);
   });
@@ -102,6 +112,45 @@ describe('LibraryPage', () => {
     select('Sắp xếp', 'name');
     select('Sắp xếp', 'default');
     expect(firstRowName()).toBe('Đẩy tạ đơn 1');
+  });
+
+  it('bấm Bắt đầu: buổi tập là danh sách đang hiển thị (đã lọc), bắt đầu từ bài được bấm', () => {
+    typeSearch('đẩy');
+    waitDebounce();
+    clickRowButton('Bắt đầu', 1);
+
+    expect(session().queue).toHaveLength(1250);
+    expect(session().queue.every((e) => e.name.startsWith('Đẩy'))).toBe(true);
+    expect(session().currentIndex).toBe(1);
+    expect(session().isRunning).toBe(true);
+
+    session().next();
+    expect(currentName()).toMatch(/^Đẩy/);
+  });
+
+  it('bấm Bắt đầu trên danh sách đã sắp xếp thì buổi tập theo đúng thứ tự đang hiển thị', () => {
+    select('Sắp xếp', 'name');
+    clickRowButton('Bắt đầu', 0);
+    expect(currentName()).toBe('Bật chậm 1');
+    expect(session().queue).toHaveLength(10000);
+  });
+
+  it('bấm "+ Buổi tập" thì thêm bài vào cuối buổi tập', () => {
+    clickRowButton('+ Buổi tập', 0);
+    clickRowButton('+ Buổi tập', 2);
+    expect(session().queue.map((e) => e.id)).toEqual(['e1', 'e3']);
+  });
+
+  it('đồng hồ chạy (tick mỗi giây) không làm các dòng render lại', () => {
+    clickRowButton('Bắt đầu', 0);
+    const before = rowRenders.count;
+    act(() => {
+      session().tick();
+      session().tick();
+      session().tick();
+    });
+    expect(session().elapsed).toBe(3);
+    expect(rowRenders.count).toBe(before);
   });
 
   it('đang gõ (chưa hết 300ms) thì các dòng không bị render lại', () => {

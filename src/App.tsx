@@ -3,6 +3,7 @@ import LibraryPage from './features/library/LibraryPage';
 import SavedPage from './features/saved/SavedPage';
 import RoutinesPage from './features/routines/RoutinesPage';
 import RoutineDetailPage from './features/routines/RoutineDetailPage';
+import SessionBar from './features/session/SessionBar';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/routines/:id" element={<RoutineDetailPage />} />
         </Routes>
       </main>
+      <SessionBar />
     </>
   );
 }
